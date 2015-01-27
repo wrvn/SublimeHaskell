@@ -515,10 +515,14 @@ class SublimeHaskellOutputText(sublime_plugin.TextCommand):
     Helper command to output text to any view
     TODO: Is there any default command for this purpose?
     """
-    def run(self, edit, text = None):
+    def run(self, edit, text = None, clear = False):
         if not text:
             return
+        self.view.set_read_only(False)
+        if clear:
+            self.view.erase(edit, sublime.Region(0, self.view.size()))
         self.view.insert(edit, self.view.size(), text)
+        self.view.set_read_only(True)
 
 
 
@@ -728,5 +732,17 @@ def plugin_loaded():
     CABAL_INSPECTOR_EXE_PATH = os.path.join(cache_path, 'CabalInspector')
     preload_settings()
 
+def output_text(view, text = None, clear = False):
+    view.run_command('sublime_haskell_output_text', { 'text': (text or ''), 'clear': str(clear) })
+	
+def output_panel(window, text = '', panel_name = 'sublime_haskell_output_panel', syntax = None):
+    output_view = window.get_output_panel(panel_name)
+    if syntax is not None:
+        output_view.set_syntax_file('Packages/SublimeHaskell/Syntaxes/{0}.tmLanguage'.format(syntax))
+    output_text(output_view, text, clear = True)
+    output_view.sel().clear()
+    window.run_command('show_panel', { 'panel': ('output.' + panel_name) })
+    return output_view
+	
 if int(sublime.version()) < 3000:
     plugin_loaded()
