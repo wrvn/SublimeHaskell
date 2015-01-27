@@ -1,4 +1,7 @@
+# -*- coding: UTF-8 -*-
+
 import os
+import os.path
 import re
 import sublime
 import sublime_plugin
@@ -10,9 +13,9 @@ from collections import defaultdict
 PyV3 = version[0] == "3"
 
 if int(sublime.version()) < 3000:
-    from sublime_haskell_common import log, are_paths_equal, call_and_wait, get_setting_async, show_status_message_process, show_status_message
+    from sublime_haskell_common import *
 else:
-    from SublimeHaskell.sublime_haskell_common import log, are_paths_equal, call_and_wait, get_setting_async, show_status_message_process, show_status_message
+    from SublimeHaskell.sublime_haskell_common import *
 
 ERROR_PANEL_NAME = 'haskell_error_checker'
 
@@ -27,11 +30,16 @@ output_regex = re.compile(
 # Extract the filename, line, column, and description from an error message:
 result_file_regex = r'^(\S*?): line (\d+), column (\d+):$'
 
+# Extract the filename, line, column from symbol info
+symbol_file_regex = r'^Defined at: (.*):(\d+):(\d+)$'
 
 # Global list of errors. Used e.g. for jumping to the next one.
 # Properly assigned being a defaultdict in clear_error_marks().
 # Structure: ERRORS[filename][m.line] = OutputMessage()
 ERRORS = {}
+
+# Global ref to view with errors
+error_view = None
 
 
 def filename_of_path(p):
@@ -200,12 +208,12 @@ def mark_messages_in_views(errors):
             if view_filename is None:
                 continue
             errors_in_view = list(filter(
-                lambda x: are_paths_equal(view_filename, x.filename),
+                lambda x: os.path.samefile(view_filename, x.filename),
                 errors))
             mark_messages_in_view(errors_in_view, v)
     end_time = time.clock()
-    log('total time to mark {0} diagnostics: {1} seconds'.format(
-        len(errors), end_time - begin_time))
+    #log('total time to mark {0} diagnostics: {1} seconds'.format(
+    #    len(errors), end_time - begin_time), log_debug)
 
 message_levels = {
     'hint': {
@@ -226,11 +234,19 @@ message_levels = {
 # These next and previous commands were shamelessly copied
 # from the great SublimeClang plugin.
 
+def goto_error(view, filename, line):
+    global error_view
+    if error_view:
+        show_output(view)
+        error_region = error_view.find('{0}: line {1}, column \\d+:(\\n\\s+.*)*'.format(re.escape(filename), line), 0)
+        error_view.add_regions("current_error", [error_region], 'string', 'dot', sublime.HIDDEN)
+        error_view.show(error_region.a)
+    view.window().open_file("%s:%d" % (filename, line), sublime.ENCODED_POSITION)
+
 class SublimeHaskellNextError(sublime_plugin.TextCommand):
     def run(self, edit):
-        log("SublimeHaskellNextError")
         v = self.view
-        fn = v.file_name().encode("utf-8")
+        fn = v.file_name()
         line, column = v.rowcol(v.sel()[0].a)
         line += 1
         gotoline = -1
@@ -243,7 +259,7 @@ class SublimeHaskellNextError(sublime_plugin.TextCommand):
             if gotoline == -1 and len(ERRORS[fn]) > 0:
                 gotoline = sorted(ERRORS[fn].keys())[0]
         if gotoline != -1:
-            v.window().open_file("%s:%d" % (fn, gotoline), sublime.ENCODED_POSITION)
+            goto_error(v, fn, gotoline)
         else:
             sublime.status_message("No more errors or warnings!")
 
@@ -251,7 +267,7 @@ class SublimeHaskellNextError(sublime_plugin.TextCommand):
 class SublimeHaskellPreviousError(sublime_plugin.TextCommand):
     def run(self, edit):
         v = self.view
-        fn = v.file_name().encode("utf-8")
+        fn = v.file_name()
         line, column = v.rowcol(v.sel()[0].a)
         line += 1
         gotoline = -1
@@ -264,7 +280,7 @@ class SublimeHaskellPreviousError(sublime_plugin.TextCommand):
             if gotoline == -1 and len(ERRORS[fn]) > 0:
                 gotoline = sorted(ERRORS[fn].keys())[-1]
         if gotoline != -1:
-            v.window().open_file("%s:%d" % (fn, gotoline), sublime.ENCODED_POSITION)
+            goto_error(v, fn, gotoline)
         else:
             sublime.status_message("No more errors or warnings!")
 
@@ -293,27 +309,24 @@ def mark_messages_in_view(messages, view):
             sublime.DRAW_OUTLINED)
 
 
+def write_panel(window, text, panel_name = "sublime_haskell_panel", syntax = None):
+    info_view = output_panel(window, text, panel_name = panel_name, syntax = syntax)
+    info_view.settings().set("result_file_regex", symbol_file_regex)
+    return info_view
+
 def write_output(view, text, cabal_project_dir):
     "Write text to Sublime's output panel."
-    output_view = view.window().get_output_panel(ERROR_PANEL_NAME)
-    output_view.set_read_only(False)
-    # Configure Sublime's error message parsing:
-    output_view.settings().set("result_file_regex", result_file_regex)
-    output_view.settings().set("result_base_dir", cabal_project_dir)
-    # Write to the output buffer:
-    output_view.run_command('sublime_haskell_output_text', {
-        'text': text })
-    # Set the selection to the beginning of the view so that "next result" works:
-    output_view.sel().clear()
-    output_view.sel().add(sublime.Region(0))
-    output_view.set_read_only(True)
-    # Show the results panel:
-    view.window().run_command('show_panel', {'panel': 'output.' + ERROR_PANEL_NAME})
+    global error_view
+    error_view = output_panel(view.window(), text, panel_name = ERROR_PANEL_NAME, syntax = 'HaskellOutputPanel')
+    error_view.settings().set("result_file_regex", result_file_regex)
+    error_view.settings().set("result_base_dir", cabal_project_dir)
 
 
 def hide_output(view):
     view.window().run_command('hide_panel', {'panel': 'output.' + ERROR_PANEL_NAME})
 
+def show_output(view):
+    view.window().run_command('show_panel', {'panel': 'output.' + ERROR_PANEL_NAME})
 
 def parse_output_messages(base_dir, text):
     "Parse text into a list of OutputMessage objects."
