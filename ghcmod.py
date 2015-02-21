@@ -157,9 +157,10 @@ def ghcmod_browse_module(module_name, cabal = None):
     Returns symbols.Module with all declarations
     """
     contents = call_ghcmod_and_wait(['browse', '-d', module_name], cabal = cabal).splitlines()
-
-    if not contents:
-        return None
+    
+    # Adding empty modules into cache greatly speeds up loading standard modules cache
+    # if not contents:
+    #    return None
 
     m = symbols.Module(module_name, cabal = cabal)
 
