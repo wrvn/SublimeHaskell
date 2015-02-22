@@ -163,9 +163,17 @@ def call_and_wait_with_input(command, input_string, **popen_kwargs):
 
     # For the subprocess, extend the env PATH to include the 'add_to_PATH' setting.
     extended_env = get_extended_env()
-
+    
+    # Remove starting and ending quotes from strings
+    command_fixed=[]
+    for sc in command:
+        if sc.startswith('"') and sc.endswith('"'):
+            command_fixed.append(sc[1:-1])
+        else:
+            command_fixed.append(sc)
+    
     process = subprocess.Popen(
-        command,
+        command_fixed,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         stdin=subprocess.PIPE,
