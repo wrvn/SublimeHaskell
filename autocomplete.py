@@ -786,9 +786,10 @@ class StandardInspectorAgent(threading.Thread):
                         self.load_module_completions(c)
                 except:
                     continue
-
-            if len(load_modules) > 0:
-                cache.dump_cabal_cache(autocompletion.database)
+            # This seems to cause cabal cache to be overwritten sometimes
+            # forcing module inspector to remake whole cache
+            #if len(load_modules) > 0:
+            #    cache.dump_cabal_cache(autocompletion.database)
 
             self.update_event.wait(AGENT_SLEEP_TIMEOUT)
             self.update_event.clear()
@@ -863,7 +864,7 @@ class StandardInspectorAgent(threading.Thread):
 
         if get_setting_async('enable_ghc_mod'):
             try:
-                m = util.browse_module(module_name, cabal = cabal)
+                m = ghcmod.ghcmod_browse_module(module_name, cabal = cabal, use_ghc_package = True)
 
                 if m:
                     autocompletion.database.add_module(m)
