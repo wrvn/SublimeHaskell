@@ -762,12 +762,17 @@ class StandardInspectorAgent(threading.Thread):
             cabal = current_cabal()
 
             if len(load_modules) > 0:
-                try:
-                    for m in load_modules:
-                        self._load_standard_module(m, cabal)
-                        # self._load_standard_module_docs(m, cabal)
-                except:
-                    continue
+            
+                modules_new = []
+                with autocompletion.database.get_cabal_modules(cabal) as cabal_modules:
+                    for module_name in load_modules:
+                        if not module_name in cabal_modules:
+                            modules_new.append(module_name)
+                            
+                for m in modules_new:
+                    self._load_standard_module(m, cabal)
+                    # self._load_standard_module_docs(m, cabal)
+
 
             load_module_docs = []
             with self.module_docs as module_docs:
@@ -840,12 +845,19 @@ class StandardInspectorAgent(threading.Thread):
 
                 begin_time = time.clock()
                 log('loading standard modules info for {0}'.format(cabal))
-
+                
+                modules_new = []
+                with autocompletion.database.get_cabal_modules(cabal) as cabal_modules:
+                    log('loaded {0} modules'.format(len(cabal_modules)))
+                    for module_name in modules:
+                        if not module_name in cabal_modules:
+                            modules_new.append(module_name)
+                            
+                log('Found {0} new modules that are not in cache'.format(len(modules_new)))
+                
                 loaded_modules = 0
-                have_new_modules = False
-                for m in modules:
-                    if self._load_standard_module(m, cabal):
-                        have_new_modules = True
+                for m in modules_new:
+                    self._load_standard_module(m, cabal)
                     # self._load_standard_module_docs(m, cabal)
                     loaded_modules += 1
                     s.percentage_message(loaded_modules, len(modules))
@@ -853,7 +865,7 @@ class StandardInspectorAgent(threading.Thread):
                 end_time = time.clock()
                 log('loading standard modules info for {0} within {1} seconds'.format(cabal, end_time - begin_time))
                 
-                if have_new_modules:
+                if len(modules_new) > 0:
                     log('New modules added, dumping cabal cache....')
                     
                     begin_time = time.clock()
@@ -872,21 +884,15 @@ class StandardInspectorAgent(threading.Thread):
         if not cabal:
             cabal = current_cabal()
 
-        with autocompletion.database.get_cabal_modules(cabal) as cabal_modules:
-            if module_name in cabal_modules:
-                return False
-
         if get_setting_async('enable_ghc_mod'):
             try:
                 m = ghcmod.ghcmod_browse_module(module_name, cabal = cabal, use_ghc_package = True)
 
                 if m:
                     autocompletion.database.add_module(m)
-                    return True
 
             except Exception as e:
                 log('Inspecting in-cabal module {0} failed: {1}'.format(module_name, e))
-                return False
 
     def _load_standard_module_docs(self, module_name, cabal = None):
         if not cabal:
