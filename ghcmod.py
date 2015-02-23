@@ -152,11 +152,15 @@ def wait_ghcmod_and_parse(view, filename, msg, cmds_with_args, alter_messages_cb
 
     show_output_result_text(view, msg, output_text, exit_code, file_dir)
 
-def ghcmod_browse_module(module_name, cabal = None):
+def ghcmod_browse_module(module_name, cabal = None, use_ghc_package = False):
     """
     Returns symbols.Module with all declarations
     """
-    contents = call_ghcmod_and_wait(['browse', '-d', module_name], cabal = cabal).splitlines()
+    contents = None
+    if use_ghc_package:
+        contents = call_ghcmod_and_wait(['-g', '-package ghc','browse', '-d', module_name], cabal = cabal).splitlines()
+    else:
+        contents = call_ghcmod_and_wait(['browse', '-d', module_name], cabal = cabal).splitlines()
     
     # Adding empty modules into cache greatly speeds up loading standard modules cache
     # if not contents:
