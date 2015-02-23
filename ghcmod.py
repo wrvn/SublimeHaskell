@@ -121,7 +121,11 @@ def wait_ghcmod_and_parse(view, filename, msg, cmds_with_args, alter_messages_cb
         # stdout contains NULL as line endings within one message
         # error_output_regex using indents to determine one message scope
         # Replace NULLs to indents
-        out = stdout.replace('\0', '\n  ')
+        out1 = stdout.replace('\0', '\n  ')
+        
+        # Hlint outputs Error instead Warning for tips
+        # so lets replace them
+        out = out1.replace('Error', 'Warning')
 
         success = len(out.strip()) == 0
 
