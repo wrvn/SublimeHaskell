@@ -12,6 +12,7 @@ if int(sublime.version()) < 3000:
     import cache
     import util
     import hdocs
+    import ghcmod
     from ghci import ghci_info
     from haskell_docs import haskell_docs
     from hdevtools import start_hdevtools, stop_hdevtools
@@ -21,6 +22,7 @@ else:
     import SublimeHaskell.cache as cache
     import SublimeHaskell.util as util
     import SublimeHaskell.hdocs as hdocs
+    import SublimeHaskell.ghcmod as ghcmod
     from SublimeHaskell.ghci import ghci_info
     from SublimeHaskell.haskell_docs import haskell_docs
     from SublimeHaskell.hdevtools import start_hdevtools, stop_hdevtools
@@ -786,8 +788,7 @@ class StandardInspectorAgent(threading.Thread):
                         self.load_module_completions(c)
                 except:
                     continue
-            # This seems to cause cabal cache to be overwritten sometimes
-            # forcing module inspector to remake whole cache
+
             #if len(load_modules) > 0:
             #    cache.dump_cabal_cache(autocompletion.database)
 
