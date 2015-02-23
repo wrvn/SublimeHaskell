@@ -789,6 +789,8 @@ class StandardInspectorAgent(threading.Thread):
                 except:
                     continue
 
+            # This seems to cause cabal cache to be overwritten sometimes
+            # forcing module inspector to remake whole cache
             #if len(load_modules) > 0:
             #    cache.dump_cabal_cache(autocompletion.database)
 
@@ -840,16 +842,27 @@ class StandardInspectorAgent(threading.Thread):
                 log('loading standard modules info for {0}'.format(cabal))
 
                 loaded_modules = 0
+                have_new_modules = False
                 for m in modules:
-                    self._load_standard_module(m, cabal)
+                    if self._load_standard_module(m, cabal):
+                        have_new_modules = True
                     # self._load_standard_module_docs(m, cabal)
                     loaded_modules += 1
                     s.percentage_message(loaded_modules, len(modules))
 
                 end_time = time.clock()
                 log('loading standard modules info for {0} within {1} seconds'.format(cabal, end_time - begin_time))
-
-                cache.dump_cabal_cache(autocompletion.database, cabal)
+                
+                if have_new_modules:
+                    log('New modules added, dumping cabal cache....')
+                    
+                    begin_time = time.clock()
+                    cache.dump_cabal_cache(autocompletion.database, cabal)
+                    end_time = time.clock()
+                    
+                    log('Cabal cache dumped within {0} seconds'.format(end_time - begin_time))
+                else:
+                    log('No new modules added to cache')
 
         except Exception as e:
             log('loading standard modules info for {0} failed with {1}'.format(cabal, e))
@@ -861,7 +874,7 @@ class StandardInspectorAgent(threading.Thread):
 
         with autocompletion.database.get_cabal_modules(cabal) as cabal_modules:
             if module_name in cabal_modules:
-                return
+                return False
 
         if get_setting_async('enable_ghc_mod'):
             try:
@@ -869,9 +882,11 @@ class StandardInspectorAgent(threading.Thread):
 
                 if m:
                     autocompletion.database.add_module(m)
+                    return True
 
             except Exception as e:
                 log('Inspecting in-cabal module {0} failed: {1}'.format(module_name, e))
+                return False
 
     def _load_standard_module_docs(self, module_name, cabal = None):
         if not cabal:
