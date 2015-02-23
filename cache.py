@@ -101,6 +101,12 @@ def dump_project_cache(database, project_path):
         f.write(formatted_json)
 
 def load_cabal_cache(database, cabal_name = None):
+    # Seems cache.py is getting loaded after autocomplete.py
+    # which can call this function before plugin_loaded() is called
+    # resulting in failure to load cabal cache and rebuilding whole index from start
+    if not CACHE_PLUGIN_IS_LOADED:
+        plugin_loaded()
+
     if not cabal_name:
         cabal_name = current_cabal()
     formatted_json = None
@@ -125,7 +131,11 @@ def load_project_cache(database, project_path):
         for m in project_modules.values():
             database.add_file(m.location.filename, m)
 
+            
+CACHE_PLUGIN_IS_LOADED = False
+            
 def plugin_loaded():
+    CACHE_PLUGIN_IS_LOADED = True
     global CACHE_PATH
     global CABAL_CACHE_PATH
     global PROJECTS_CACHE_PATH
