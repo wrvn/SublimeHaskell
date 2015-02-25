@@ -869,6 +869,7 @@ class StandardInspectorAgent(threading.Thread):
                     log('New modules added, dumping cabal cache....')
                     
                     begin_time = time.clock()
+                    s.change_message('Dumping cache to disk')
                     cache.dump_cabal_cache(autocompletion.database, cabal)
                     end_time = time.clock()
                     
