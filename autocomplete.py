@@ -860,7 +860,7 @@ class StandardInspectorAgent(threading.Thread):
                     self._load_standard_module(m, cabal)
                     # self._load_standard_module_docs(m, cabal)
                     loaded_modules += 1
-                    s.percentage_message(loaded_modules, len(modules))
+                    s.percentage_message(loaded_modules, len(modules_new))
 
                 end_time = time.clock()
                 log('loading standard modules info for {0} within {1} seconds'.format(cabal, end_time - begin_time))
